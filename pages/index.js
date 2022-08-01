@@ -1,6 +1,6 @@
 import classes from "../styles/Home.module.css";
 import Head from "next/head";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import abi from "../utils/BuyMeACoffee.json";
 
@@ -114,9 +114,42 @@ const Home = () => {
     }
   };
 
-  useMemo(() => {
+  useEffect(() => {
+    let buyMeACoffee;
     isWalletConnected();
     getMemos();
+
+    // Create an event handler function for when someone sends
+    // us a new memo.
+    const onNewMemo = (from, timestamp, name, message) => {
+      console.log("Memo received: ", from, timestamp, name, message);
+      setMemos((prevState) => [
+        ...prevState,
+        {
+          address: from,
+          timestamp: new Date(timestamp * 1000),
+          message,
+          name,
+        },
+      ]);
+    };
+
+    const { ethereum } = window;
+
+    // Listen for new memo events.
+    if (ethereum) {
+      const provider = new ethers.providers.Web3Provider(ethereum, "any");
+      const signer = provider.getSigner();
+      buyMeACoffee = new ethers.Contract(contractAddress, contractABI, signer);
+
+      buyMeACoffee.on("NewMemo", onNewMemo);
+    }
+
+    return () => {
+      if (buyMeACoffee) {
+        buyMeACoffee.off("NewMemo", onNewMemo);
+      }
+    };
   }, []);
 
   return (
